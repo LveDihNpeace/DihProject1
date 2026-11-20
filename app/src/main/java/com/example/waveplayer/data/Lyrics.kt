@@ -43,7 +43,7 @@ object LrcParser {
         return sb.toString().replace(spaces, " ").trim()
     }
 
-    /** [tags...]text [tags...]text ... on a single line. Empty list when the line has no [mm:ss] tag. */
+    /** Timestamp tags followed by text on a single line. Empty list when no timestamp tag exists. */
     private fun segments(line: String): List<Pair<List<Long>, String>> {
         val matches = timeTag.findAll(line).toList()
         if (matches.isEmpty()) return emptyList()

@@ -9,7 +9,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import kotlinx.coroutines.Dispatchers
+import com.example.waveplayer.data.Song
+import com.example.waveplayer.data.toMediaItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,9 +19,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
-
-    private val _songs = MutableStateFlow<List<Song>>(emptyList())
-    val songs: StateFlow<List<Song>> = _songs.asStateFlow()
 
     private val _current = MutableStateFlow<MediaItem?>(null)
     val current: StateFlow<MediaItem?> = _current.asStateFlow()
@@ -59,7 +57,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             while (isActive) {
                 controller?.let { if (it.isPlaying) _position.value = it.currentPosition }
-                delay(500)
+                delay(300)
             }
         }
     }
@@ -73,14 +71,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _repeat.value = p.repeatMode
     }
 
-    fun loadSongs() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _songs.value = MusicRepository.loadSongs(getApplication())
-        }
-    }
-
     fun play(list: List<Song>, index: Int) {
         val c = controller ?: return
+        if (list.isEmpty()) return
         c.setMediaItems(list.map { it.toMediaItem() }, index, 0L)
         c.prepare()
         c.play()

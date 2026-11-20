@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="open"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_open"
+        android:shortcutShortLabel="@string/sc_open_short"
+        android:shortcutLongLabel="@string/sc_open_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetClass="com.example.waveplayer.MainActivity"
+            android:targetPackage="com.example.waveplayer" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="favorites"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_heart"
+        android:shortcutShortLabel="@string/sc_fav_short"
+        android:shortcutLongLabel="@string/sc_fav_long">
+        <intent
+            android:action="com.example.waveplayer.SHORTCUT_FAVORITES"
+            android:targetClass="com.example.waveplayer.MainActivity"
+            android:targetPackage="com.example.waveplayer" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="recent"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_history"
+        android:shortcutShortLabel="@string/sc_recent_short"
+        android:shortcutLongLabel="@string/sc_recent_long">
+        <intent
+            android:action="com.example.waveplayer.SHORTCUT_RECENT"
+            android:targetClass="com.example.waveplayer.MainActivity"
+            android:targetPackage="com.example.waveplayer" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="lyrics"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_lyrics"
+        android:shortcutShortLabel="@string/sc_lyrics_short"
+        android:shortcutLongLabel="@string/sc_lyrics_long">
+        <intent
+            android:action="com.example.waveplayer.SHORTCUT_LYRICS"
+            android:targetClass="com.example.waveplayer.MainActivity"
+            android:targetPackage="com.example.waveplayer" />
+    </shortcut>
+</shortcuts>

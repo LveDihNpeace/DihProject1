@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Kontrol WavePlayer dari layar utama</string>
+    <string name="sc_open_short">WavePlayer</string>
+    <string name="sc_open_long">Open WavePlayer</string>
+    <string name="sc_fav_short">Favorites</string>
+    <string name="sc_fav_long">Favorites</string>
+    <string name="sc_recent_short">Recent</string>
+    <string name="sc_recent_long">Recently Played</string>
+    <string name="sc_lyrics_short">Lyrics</string>
+    <string name="sc_lyrics_long">Open Lyrics</string>
+</resources>

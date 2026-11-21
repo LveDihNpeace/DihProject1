@@ -91,7 +91,7 @@ object LrcParser {
         return LyricLine(t, text, if (words.size >= 2) words else null)
     }
 
-    /** [tags...]text [tags...]text ... on a single line; text is returned untouched. */
+    // Splits one physical line that holds several "tag + text" segments; the text is returned untouched.
     private fun segments(line: String): List<Pair<List<Long>, String>> {
         val matches = timeTag.findAll(line).toList()
         if (matches.isEmpty()) return emptyList()

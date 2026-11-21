@@ -11,10 +11,10 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -29,13 +29,19 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -183,38 +189,38 @@ fun NowPlayingScreen(
 }
 
 /**
- * Seek bar. Position and duration are read live from the controller (20 Hz playing, 3 Hz paused).
- *  - Duration 0 means "unknown": the bar is disabled instead of using a bogus range.
+ * Seek bar section. Position and duration are read live from the controller (20 Hz playing, 3 Hz paused).
+ *  - The bar works in fractions (0..1) and the touch position is converted to milliseconds only at release, so
+ *    playback updates can never disturb a gesture.
  *  - While touched, the touch value is shown and polling never overwrites it.
- *  - On release the real player is asked to seek (works playing or paused). The bar keeps showing the target
- *    until the controller reports a position near it (or 2 s pass), so it can never snap back to the old position.
- *  - If the Slider ever fails to deliver onValueChangeFinished, the release is detected from the interaction
- *    source and the seek is committed anyway.
+ *  - On release the real player is asked to seek. It is NOT paused or resumed: the play/pause state is untouched.
+ *  - The bar keeps showing the target until the controller reports a position near it (or 2 s pass), so it never
+ *    snaps back to the old position.
+ *  - Duration 0 means "unknown" (bar disabled). Once a valid duration is known it is kept for this track, so a
+ *    transient 0 from the controller cannot disable the bar in the middle of a gesture.
  */
 @Composable
 private fun ProgressSection(vm: PlayerViewModel, playing: Boolean) {
     var pos by remember { mutableLongStateOf(vm.positionNow()) }
     var dur by remember { mutableLongStateOf(vm.durationNow()) }
     var dragging by remember { mutableStateOf(false) }
-    var dragValue by remember { mutableFloatStateOf(0f) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
     var pendingTarget by remember { mutableLongStateOf(-1L) }
     var pendingSince by remember { mutableLongStateOf(0L) }
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val dragged by interaction.collectIsDraggedAsState()
 
-    fun commit() {
-        if (!dragging) return
-        val target = dragValue.toLong()
+    fun seekToFraction(f: Float) {
+        if (dur <= 0) return
+        val target = (f.coerceIn(0f, 1f) * dur).toLong()
         vm.seekTo(target)
         pos = target
         pendingTarget = target
         pendingSince = SystemClock.uptimeMillis()
-        dragging = false
     }
 
     LaunchedEffect(playing) {
         while (isActive) {
+            val d = vm.durationNow()
+            if (d > 0) dur = d
             if (!dragging) {
                 val p = vm.positionNow()
                 if (pendingTarget >= 0) {
@@ -223,28 +229,74 @@ private fun ProgressSection(vm: PlayerViewModel, playing: Boolean) {
                     if (settled || expired) { pendingTarget = -1L; pos = p } else pos = pendingTarget
                 } else pos = p
             }
-            dur = vm.durationNow()
             delay(if (playing) 50 else 300)
         }
     }
-    LaunchedEffect(dragging, pressed, dragged) { if (dragging && !pressed && !dragged) commit() }
 
-    val white = Color.White
     val dim = Color.White.copy(alpha = 0.55f)
-    val max = maxOf(dur, 1L).toFloat()
-    val shown = (if (dragging) dragValue else pos.toFloat()).coerceIn(0f, max)
-    Slider(
-        value = shown,
-        onValueChange = { dragging = true; dragValue = it },
-        onValueChangeFinished = { commit() },
-        valueRange = 0f..max,
+    val fraction = if (dur > 0) (if (dragging) dragFraction else pos.toFloat() / dur) else 0f
+    val shownMs = if (dragging) (dragFraction * dur).toLong() else pos
+    SeekBar(
+        fraction = fraction,
         enabled = dur > 0,
-        colors = SliderDefaults.colors(thumbColor = white, activeTrackColor = white, inactiveTrackColor = white.copy(alpha = 0.3f)),
-        interactionSource = interaction,
+        onChange = { dragging = true; dragFraction = it },
+        onEnd = { if (dragging) { seekToFraction(dragFraction); dragging = false } },
+        onSetProgress = { seekToFraction(it) },
     )
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(fmt(shown.toLong()), color = dim, style = MaterialTheme.typography.labelMedium)
+        Text(fmt(shownMs), color = dim, style = MaterialTheme.typography.labelMedium)
         Text(fmt(dur), color = dim, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+/**
+ * Seek bar with the same look as the Material slider it replaces (4 dp track, 20 dp thumb, white on the
+ * translucent player background). The value is derived from the ABSOLUTE touch position on every event, so it does
+ * not keep any internal offset that could go stale while the playback position moves underneath it.
+ * Tap = jump there, drag = follow the finger; onEnd fires when the finger lifts or the gesture is cancelled.
+ */
+@Composable
+private fun SeekBar(
+    fraction: Float, enabled: Boolean,
+    onChange: (Float) -> Unit, onEnd: () -> Unit, onSetProgress: (Float) -> Unit,
+) {
+    val change by rememberUpdatedState(onChange)
+    val end by rememberUpdatedState(onEnd)
+    val f = fraction.coerceIn(0f, 1f)
+    val active = Color.White.copy(alpha = if (enabled) 1f else 0.4f)
+    val inactive = Color.White.copy(alpha = if (enabled) 0.3f else 0.15f)
+    Canvas(
+        Modifier.fillMaxWidth().height(40.dp)
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(f, 0f..1f)
+                setProgress { target -> if (enabled) { onSetProgress(target); true } else false }
+            }
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                val pad = 10.dp.toPx() // thumb radius: keeps the thumb fully inside the bar at both ends
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    fun frac(x: Float) = ((x - pad) / (size.width - 2 * pad)).coerceIn(0f, 1f)
+                    change(frac(down.position.x))
+                    down.consume()
+                    var pressed = true
+                    while (pressed) {
+                        val c = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
+                        if (c == null || !c.pressed) pressed = false
+                        else { change(frac(c.position.x)); c.consume() }
+                    }
+                    end()
+                }
+            },
+    ) {
+        val pad = 10.dp.toPx()
+        val cy = size.height / 2f
+        val trackH = 4.dp.toPx()
+        val w = size.width - 2 * pad
+        val x = pad + w * f
+        drawLine(inactive, Offset(pad, cy), Offset(pad + w, cy), trackH, StrokeCap.Round)
+        drawLine(active, Offset(pad, cy), Offset(x, cy), trackH, StrokeCap.Round)
+        drawCircle(active, 10.dp.toPx(), Offset(x, cy))
     }
 }
 

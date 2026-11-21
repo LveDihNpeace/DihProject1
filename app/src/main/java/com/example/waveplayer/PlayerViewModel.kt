@@ -5,6 +5,7 @@ import android.content.ComponentName
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -94,7 +95,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun togglePlay() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
     fun next() { controller?.seekToNextMediaItem() }
     fun previous() { controller?.seekToPreviousMediaItem() }
-    fun seekTo(ms: Long) { controller?.seekTo(ms) }
+    /** Live duration straight from the controller (0 while unknown); does not depend on a player event having fired. */
+    fun durationNow(): Long = controller?.duration?.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
+
+    /** Seeks the real player (through the session); the target is kept inside [0, duration]. */
+    fun seekTo(ms: Long) {
+        val c = controller ?: return
+        val d = c.duration
+        c.seekTo(if (d != C.TIME_UNSET && d > 0) ms.coerceIn(0L, d) else maxOf(ms, 0L))
+    }
     fun toggleShuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
     fun cycleRepeat() {
         controller?.let {

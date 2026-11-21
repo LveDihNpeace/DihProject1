@@ -70,12 +70,7 @@ private class Fft(private val n: Int) {
             }
             size *= 2
         }
-        if (inverse) {
-            for (i in 0 until n) {
-                re[i] = re[i] / n
-                im[i] = im[i] / n
-            }
-        }
+        if (inverse) for (i in 0 until n) { re[i] /= n; im[i] /= n }
     }
 }
 

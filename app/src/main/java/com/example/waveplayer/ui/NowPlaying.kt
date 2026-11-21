@@ -3,6 +3,7 @@
 package com.example.waveplayer.ui
 
 import android.os.Build
+import android.os.SystemClock
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -11,6 +12,9 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +56,7 @@ import com.example.waveplayer.data.Song
 import com.example.waveplayer.viewmodel.LyricsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlin.math.abs
 
 @Composable
 fun DynamicBackground(palette: State<ArtPalette?>, artUri: Any?, blurLevel: Float) {
@@ -108,7 +114,11 @@ fun NowPlayingScreen(
     if (showVocal) VocalSheet { showVocal = false }
     if (showEq) EqualizerSheet { showEq = false }
 
-    Box(Modifier.fillMaxSize()) {
+    // The overlay must own the touches: a layout without a pointer-input node is not "hit", so taps on empty
+    // areas would reach the lists, mini player and navigation bar underneath. An empty pointerInput registers the
+    // node (this is what Material3 Surface does) without reading or consuming any event, so Slider, buttons and
+    // scrolling children keep receiving their gestures normally.
+    Box(Modifier.fillMaxSize().pointerInput(Unit) { }) {
         DynamicBackground(palette, item?.mediaMetadata?.artworkUri, settings.blur)
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp),
@@ -148,7 +158,7 @@ fun NowPlayingScreen(
                 }
             }
 
-            ProgressSection(vm, playing)
+            key(item?.mediaId) { ProgressSection(vm, playing) }
 
             Row(
                 Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
@@ -172,29 +182,68 @@ fun NowPlayingScreen(
     }
 }
 
-/** Position is polled here (20 Hz while playing, 3 Hz paused) and only this small subtree recomposes. */
+/**
+ * Seek bar. Position and duration are read live from the controller (20 Hz playing, 3 Hz paused).
+ *  - Duration 0 means "unknown": the bar is disabled instead of using a bogus range.
+ *  - While touched, the touch value is shown and polling never overwrites it.
+ *  - On release the real player is asked to seek (works playing or paused). The bar keeps showing the target
+ *    until the controller reports a position near it (or 2 s pass), so it can never snap back to the old position.
+ *  - If the Slider ever fails to deliver onValueChangeFinished, the release is detected from the interaction
+ *    source and the seek is committed anyway.
+ */
 @Composable
 private fun ProgressSection(vm: PlayerViewModel, playing: Boolean) {
-    val dur by vm.duration.collectAsStateWithLifecycle()
-    val pos = remember { mutableLongStateOf(vm.positionNow()) }
-    var drag by remember { mutableStateOf<Float?>(null) }
+    var pos by remember { mutableLongStateOf(vm.positionNow()) }
+    var dur by remember { mutableLongStateOf(vm.durationNow()) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
+    var pendingTarget by remember { mutableLongStateOf(-1L) }
+    var pendingSince by remember { mutableLongStateOf(0L) }
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val dragged by interaction.collectIsDraggedAsState()
+
+    fun commit() {
+        if (!dragging) return
+        val target = dragValue.toLong()
+        vm.seekTo(target)
+        pos = target
+        pendingTarget = target
+        pendingSince = SystemClock.uptimeMillis()
+        dragging = false
+    }
+
     LaunchedEffect(playing) {
         while (isActive) {
-            pos.longValue = vm.positionNow()
+            if (!dragging) {
+                val p = vm.positionNow()
+                if (pendingTarget >= 0) {
+                    val settled = abs(p - pendingTarget) < 1500
+                    val expired = SystemClock.uptimeMillis() - pendingSince > 2000
+                    if (settled || expired) { pendingTarget = -1L; pos = p } else pos = pendingTarget
+                } else pos = p
+            }
+            dur = vm.durationNow()
             delay(if (playing) 50 else 300)
         }
     }
+    LaunchedEffect(dragging, pressed, dragged) { if (dragging && !pressed && !dragged) commit() }
+
     val white = Color.White
     val dim = Color.White.copy(alpha = 0.55f)
+    val max = maxOf(dur, 1L).toFloat()
+    val shown = (if (dragging) dragValue else pos.toFloat()).coerceIn(0f, max)
     Slider(
-        value = drag ?: pos.longValue.toFloat(),
-        onValueChange = { drag = it },
-        onValueChangeFinished = { drag?.let { vm.seekTo(it.toLong()) }; drag = null },
-        valueRange = 0f..maxOf(dur, 1L).toFloat(),
+        value = shown,
+        onValueChange = { dragging = true; dragValue = it },
+        onValueChangeFinished = { commit() },
+        valueRange = 0f..max,
+        enabled = dur > 0,
         colors = SliderDefaults.colors(thumbColor = white, activeTrackColor = white, inactiveTrackColor = white.copy(alpha = 0.3f)),
+        interactionSource = interaction,
     )
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(fmt((drag ?: pos.longValue.toFloat()).toLong()), color = dim, style = MaterialTheme.typography.labelMedium)
+        Text(fmt(shown.toLong()), color = dim, style = MaterialTheme.typography.labelMedium)
         Text(fmt(dur), color = dim, style = MaterialTheme.typography.labelMedium)
     }
 }

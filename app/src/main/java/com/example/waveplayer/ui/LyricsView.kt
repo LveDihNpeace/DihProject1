@@ -5,9 +5,7 @@ package com.example.waveplayer.ui
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
@@ -183,7 +181,7 @@ private suspend fun LazyListState.centerOn(index: Int, fraction: Float, animate:
     val target = info.viewportStartOffset + viewport * fraction
     val delta = item.offset + item.size / 2f - target
     if (abs(delta) < 1f) return
-    if (animate) animateScrollBy(delta, tween(450, easing = FastOutSlowInEasing)) else scrollBy(delta)
+    if (animate) animateScrollBy(delta, Motion.emphasized()) else scrollBy(delta)
 }
 
 @Composable
@@ -207,11 +205,11 @@ private fun LyricRow(
         dist == 2 -> 0.4f
         else -> 0.28f
     }
-    val lineAlpha by animateFloatAsState(targetAlpha, tween(300), label = "alpha")
-    val lineScale by animateFloatAsState(if (synced && !active) 0.9f else 1f, tween(300), label = "scale")
+    val lineAlpha by animateFloatAsState(targetAlpha, Motion.standard(), label = "alpha")
+    val lineScale by animateFloatAsState(if (synced && !active) 0.9f else 1f, Motion.standard(), label = "scale")
     // Blur only around the active line (cost grows with radius); the focused line is always sharp.
     val blurTarget = if (blurOn && synced && !active) blurIntensity * 12f * (minOf(dist, 3) / 3f) else 0f
-    val blurDp by animateFloatAsState(blurTarget, tween(300), label = "blur")
+    val blurDp by animateFloatAsState(blurTarget, Motion.standard(), label = "blur")
 
     var mod = Modifier.fillMaxWidth()
         .pointerInput(line) {

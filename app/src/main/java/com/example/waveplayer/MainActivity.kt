@@ -13,8 +13,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -51,6 +49,7 @@ import com.example.waveplayer.data.Song
 import com.example.waveplayer.ui.GroupsScreen
 import com.example.waveplayer.ui.HomeScreen
 import com.example.waveplayer.ui.MiniPlayer
+import com.example.waveplayer.ui.Motion
 import com.example.waveplayer.ui.NowPlayingScreen
 import com.example.waveplayer.ui.Screen
 import com.example.waveplayer.ui.SettingsScreen
@@ -204,12 +203,12 @@ private fun Root(
         // Playback is untouched by this animation; the pages below stay composed, so scroll state is preserved.
         AnimatedVisibility(
             visible = showNow.value,
-            enter = slideInVertically(tween(320, easing = FastOutSlowInEasing)) { it / 3 } +
-                fadeIn(tween(240)) +
-                scaleIn(tween(320, easing = FastOutSlowInEasing), initialScale = 0.92f, transformOrigin = TransformOrigin(0.5f, 1f)),
-            exit = slideOutVertically(tween(260, easing = FastOutSlowInEasing)) { it / 3 } +
-                fadeOut(tween(200)) +
-                scaleOut(tween(260, easing = FastOutSlowInEasing), targetScale = 0.92f, transformOrigin = TransformOrigin(0.5f, 1f)),
+            enter = slideInVertically(Motion.standard()) { it / 3 } +
+                fadeIn(Motion.quick()) +
+                scaleIn(Motion.standard(), initialScale = 0.92f, transformOrigin = TransformOrigin(0.5f, 1f)),
+            exit = slideOutVertically(Motion.quick()) { it / 3 } +
+                fadeOut(Motion.quick()) +
+                scaleOut(Motion.quick(), targetScale = 0.92f, transformOrigin = TransformOrigin(0.5f, 1f)),
         ) {
             NowPlayingHost(
                 player, lyricsVm, settingsVm, lib, settings, palette, favorites, startLyrics,

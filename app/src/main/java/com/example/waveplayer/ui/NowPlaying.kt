@@ -67,8 +67,8 @@ import kotlin.math.abs
 @Composable
 fun DynamicBackground(palette: State<ArtPalette?>, artUri: Any?, blurLevel: Float) {
     val p = palette.value
-    val top by animateColorAsState(p?.let { Color(it.top) } ?: Color(0xFF1B1530), tween(900), label = "top")
-    val bottom by animateColorAsState(p?.let { Color(it.bottom) } ?: Color(0xFF07060C), tween(900), label = "bottom")
+    val top by animateColorAsState(p?.let { Color(it.top) } ?: WavePalette.GraphiteRaised, Motion.ambient(), label = "top")
+    val bottom by animateColorAsState(p?.let { Color(it.bottom) } ?: WavePalette.Charcoal, Motion.ambient(), label = "bottom")
     val ctx = LocalContext.current
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(top, bottom)))) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && artUri != null && blurLevel > 0f) {
@@ -111,7 +111,7 @@ fun NowPlayingScreen(
     LaunchedEffect(playing, showLyrics) {
         if (playing && !showLyrics) {
             while (isActive) {
-                rotation.animateTo(rotation.value + 360f, tween(24_000, easing = LinearEasing))
+                rotation.animateTo(rotation.value + 360f, tween(Motion.DiscRotationMs, easing = LinearEasing))
                 rotation.snapTo(rotation.value % 360f)
             }
         }
@@ -148,13 +148,13 @@ fun NowPlayingScreen(
             Spacer(Modifier.height(8.dp))
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                Crossfade(showLyrics, animationSpec = tween(350), label = "lyr") { lyr ->
+                Crossfade(showLyrics, animationSpec = Motion.standard(), label = "lyr") { lyr ->
                     if (lyr) LyricsView(vm, lyricsVm, song, settings)
                     else ArtworkDisc(item, rotation, playing, settings.artShape)
                 }
             }
 
-            Crossfade(item, animationSpec = tween(450), label = "title") { it ->
+            Crossfade(item, animationSpec = Motion.emphasized(), label = "title") { it ->
                 Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     Text(
                         it?.mediaMetadata?.title?.toString() ?: "", color = white, style = MaterialTheme.typography.headlineSmall,
@@ -302,7 +302,7 @@ private fun SeekBar(
 
 @Composable
 private fun ArtworkDisc(item: MediaItem?, rotation: Animatable<Float, AnimationVector1D>, playing: Boolean, shape: ArtShape) {
-    val scale by animateFloatAsState(if (playing) 1f else 0.94f, tween(450), label = "scale")
+    val scale by animateFloatAsState(if (playing) 1f else 0.94f, Motion.emphasized(), label = "scale")
     val artUri = item?.mediaMetadata?.artworkUri
     val primary = MaterialTheme.colorScheme.primary
     val ring = remember(primary) {
@@ -324,10 +324,10 @@ private fun ArtworkDisc(item: MediaItem?, rotation: Animatable<Float, AnimationV
             contentAlignment = Alignment.Center,
         ) {
             Box(
-                Modifier.fillMaxSize().clip(outer).background(Color(0xFF111111))
+                Modifier.fillMaxSize().clip(outer).background(WavePalette.Graphite)
                     .graphicsLayer { if (circle) rotationZ = rotation.value },
             ) {
-                Crossfade(artUri, animationSpec = tween(450), label = "art") { uri ->
+                Crossfade(artUri, animationSpec = Motion.emphasized(), label = "art") { uri ->
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.MusicNote, null, Modifier.size(side / 3), tint = Color.White.copy(alpha = 0.35f))
                         AsyncImage(uri, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -336,7 +336,7 @@ private fun ArtworkDisc(item: MediaItem?, rotation: Animatable<Float, AnimationV
             }
             if (circle) {
                 Box(
-                    Modifier.size(side * 0.16f).clip(CircleShape).background(Color(0xFF0E0C14))
+                    Modifier.size(side * 0.16f).clip(CircleShape).background(WavePalette.Charcoal)
                         .border(2.dp, Color.White.copy(alpha = 0.35f), CircleShape),
                 )
             }

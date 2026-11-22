@@ -1,9 +1,9 @@
 package com.example.waveplayer.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -12,7 +12,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -43,32 +42,72 @@ private val WaveShapes = Shapes(
     large = RoundedCornerShape(28.dp),
 )
 
+private fun waveDarkScheme(seed: Color, amoledBlack: Boolean): ColorScheme {
+    // AMOLED Charcoal (default): Charcoal / Graphite / Graphite raised.  AMOLED Black: one step darker, true black base.
+    val bg = if (amoledBlack) WavePalette.Black else WavePalette.Charcoal
+    val surface = if (amoledBlack) WavePalette.Charcoal else WavePalette.Graphite
+    val raised = if (amoledBlack) WavePalette.Graphite else WavePalette.GraphiteRaised
+    val accent = ensureContrast(seed, 4.5f, bg, surface, raised)
+    val onAccent = readableOn(accent)
+    val container = blend(raised, accent, 0.28f)
+    return darkColorScheme(
+        primary = accent, onPrimary = onAccent,
+        primaryContainer = container, onPrimaryContainer = WavePalette.OnDark,
+        secondary = accent, onSecondary = onAccent,
+        secondaryContainer = container, onSecondaryContainer = WavePalette.OnDark,
+        tertiary = accent, onTertiary = onAccent,
+        tertiaryContainer = container, onTertiaryContainer = WavePalette.OnDark,
+        background = bg, onBackground = WavePalette.OnDark,
+        surface = surface, onSurface = WavePalette.OnDark,
+        surfaceVariant = raised, onSurfaceVariant = WavePalette.OnDarkVariant,
+        surfaceTint = accent,
+        outline = WavePalette.OutlineDark, outlineVariant = WavePalette.OutlineVariantDark,
+        surfaceDim = bg, surfaceBright = raised,
+        surfaceContainerLowest = bg, surfaceContainerLow = surface, surfaceContainer = surface,
+        surfaceContainerHigh = raised, surfaceContainerHighest = raised,
+    )
+}
+
+private fun waveLightScheme(seed: Color): ColorScheme {
+    val bg = WavePalette.LightBackground
+    val surface = WavePalette.LightSurface
+    val raised = WavePalette.LightRaised
+    // The accent is darkened (same hue) only as far as needed to read on every light surface.
+    val accent = ensureContrast(seed, 4.5f, bg, surface, raised)
+    val onAccent = readableOn(accent)
+    val container = blend(raised, accent, 0.16f)
+    return lightColorScheme(
+        primary = accent, onPrimary = onAccent,
+        primaryContainer = container, onPrimaryContainer = WavePalette.OnLight,
+        secondary = accent, onSecondary = onAccent,
+        secondaryContainer = container, onSecondaryContainer = WavePalette.OnLight,
+        tertiary = accent, onTertiary = onAccent,
+        tertiaryContainer = container, onTertiaryContainer = WavePalette.OnLight,
+        background = bg, onBackground = WavePalette.OnLight,
+        surface = surface, onSurface = WavePalette.OnLight,
+        surfaceVariant = raised, onSurfaceVariant = WavePalette.OnLightVariant,
+        surfaceTint = accent,
+        outline = WavePalette.OutlineLight, outlineVariant = WavePalette.OutlineVariantLight,
+        surfaceDim = bg, surfaceBright = surface,
+        surfaceContainerLowest = bg, surfaceContainerLow = surface, surfaceContainer = surface,
+        surfaceContainerHigh = raised, surfaceContainerHighest = raised,
+    )
+}
+
 /** [artAccent] is read lazily and only in Dynamic mode, so artwork changes do not recompose the whole app otherwise. */
 @Composable
 fun WaveTheme(settings: AppSettings, artAccent: () -> Int?, content: @Composable () -> Unit) {
     val systemDark = isSystemInDarkTheme()
     val mode = settings.themeMode
     val target = if (mode == ThemeMode.DYNAMIC) (artAccent() ?: settings.accent) else settings.accent
-    val accent by animateColorAsState(Color(target), tween(700), label = "accent")
-    val onAccent = if (accent.luminance() > 0.5f) Color.Black else Color.White
+    val seed by animateColorAsState(Color(target), Motion.ambient(), label = "accent")
     val dark = when (mode) {
         ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> systemDark
         else -> true
     }
 
-    var scheme = if (dark) darkColorScheme(primary = accent, onPrimary = onAccent, secondary = accent)
-    else lightColorScheme(primary = accent, onPrimary = onAccent, secondary = accent)
-
-    if (dark) {
-        scheme = scheme.copy(
-            background = Color(0xFF0E0C14), surface = Color(0xFF0E0C14), surfaceVariant = Color(0xFF1D1927),
-            onSurfaceVariant = Color(0xFFB9B3C9),
-        )
-    }
-    if (mode == ThemeMode.AMOLED) {
-        scheme = scheme.copy(background = Color.Black, surface = Color.Black, surfaceVariant = Color(0xFF161616))
-    }
+    var scheme = if (dark) waveDarkScheme(seed, amoledBlack = mode == ThemeMode.AMOLED) else waveLightScheme(seed)
     if (settings.background != 0) {
         val bg = Color(settings.background)
         scheme = scheme.copy(background = bg, surface = bg)

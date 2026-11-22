@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 enum class ThemeMode(val label: String) {
-    SYSTEM("System"), LIGHT("Light"), DARK("Dark"), AMOLED("AMOLED Black"), DYNAMIC("Dynamic (artwork)")
+    SYSTEM("System"), LIGHT("Light"), DARK("AMOLED Charcoal"), AMOLED("AMOLED Black"), DYNAMIC("Dynamic (artwork)")
 }
 enum class ArtShape(val label: String) { CIRCLE("Circle (berputar)"), ROUNDED("Rounded"), SQUARE("Square") }
 enum class ListStyle(val label: String) { COMFORTABLE("Comfortable"), COMPACT("Compact") }
@@ -89,7 +89,7 @@ class SettingsRepository(context: Context) {
     }
 
     companion object {
-        val DEFAULT_ACCENT: Int = 0xFF7C5CFF.toInt()
+        val DEFAULT_ACCENT: Int = 0xFF8FA68E.toInt() // Muted Sage
         val THEME = stringPreferencesKey("theme_mode")
         val ACCENT = intPreferencesKey("accent")
         val BACKGROUND = intPreferencesKey("background")

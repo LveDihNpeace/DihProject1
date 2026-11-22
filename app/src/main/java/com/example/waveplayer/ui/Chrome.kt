@@ -94,7 +94,7 @@ fun WaveNavBar(selected: Screen, onSelect: (Screen) -> Unit) {
         Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             navItems.forEach { (s, label, icon) ->
                 val sel = s == selected
-                val bg by animateColorAsState(if (sel) primary.copy(alpha = 0.2f) else Color.Transparent, label = "nav")
+                val bg by animateColorAsState(if (sel) primary.copy(alpha = 0.2f) else Color.Transparent, Motion.quick(), label = "nav")
                 Column(
                     Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(bg)
                         .clickable { onSelect(s) }.padding(vertical = 8.dp),

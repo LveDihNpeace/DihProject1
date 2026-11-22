@@ -33,7 +33,7 @@ import com.example.waveplayer.data.ThemeMode
 import com.example.waveplayer.viewmodel.LibraryViewModel
 import com.example.waveplayer.viewmodel.SettingsViewModel
 
-private val accents = listOf(0xFF7C5CFF, 0xFFFF4D6D, 0xFF2DD4BF, 0xFFFFB020, 0xFF4C9AFF, 0xFF8BC34A).map { it.toInt() }
+private val accents = Accents.presets.map { it.color }
 private val backgrounds = listOf(0L, 0xFF000000, 0xFF101418, 0xFF14102A, 0xFF1F1A24, 0xFFF4EFE6).map { it.toInt() }
 
 @Composable
@@ -89,6 +89,7 @@ fun SettingsScreen(settings: AppSettings, vm: SettingsViewModel, library: Librar
 
         Section("Pemindai musik") { ScanCard(scan, lib.songs.size, library::scan) }
 
+        Text("Appearance", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 20.dp, top = 12.dp))
         Section("Tema") {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ThemeMode.values().forEach { m -> FilterChip(settings.themeMode == m, { vm.setTheme(m) }, { Text(m.label) }) }

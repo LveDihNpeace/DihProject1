@@ -4,6 +4,7 @@ package com.example.waveplayer.ui
 
 import android.os.Build
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -75,8 +76,9 @@ private fun ColorDots(colors: List<Int>, selected: Int, onPick: (Int) -> Unit) {
     }
 }
 
+/** [scrollState] is owned by the caller so the scroll position survives leaving and re-entering Settings. */
 @Composable
-fun SettingsScreen(settings: AppSettings, vm: SettingsViewModel, library: LibraryViewModel) {
+fun SettingsScreen(settings: AppSettings, vm: SettingsViewModel, library: LibraryViewModel, scrollState: ScrollState) {
     // Scan progress is collected here only, so scanning never recomposes the song lists.
     val scan by library.scan.collectAsStateWithLifecycle()
     val lib by library.library.collectAsStateWithLifecycle()
@@ -84,7 +86,7 @@ fun SettingsScreen(settings: AppSettings, vm: SettingsViewModel, library: Librar
     if (showEq) EqualizerSheet { showEq = false }
     val blurSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
         ScreenHeader("Settings")
 
         Section("Pemindai musik") { ScanCard(scan, lib.songs.size, library::scan) }

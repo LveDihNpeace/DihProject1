@@ -37,34 +37,40 @@ private fun LazyListScope.songItems(
     }
 }
 
+/**
+ * Shuffle / Play All for the Songs page. Always acts on the list it is given, so it follows the active filter.
+ * Playback goes through [onPlay], exactly as before (play the list from index 0; shuffle = shuffled copy).
+ */
+@Composable
+private fun PlayActionsRow(songs: List<Song>, onPlay: PlayAction) {
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(
+            { onPlay(songs.shuffled(), 0) }, enabled = songs.isNotEmpty(),
+            modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Icon(Icons.Default.Shuffle, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Shuffle")
+        }
+        FilledTonalButton(
+            { onPlay(songs, 0) }, enabled = songs.isNotEmpty(),
+            modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Play All")
+        }
+    }
+}
+
 @Composable
 fun HomeScreen(
     songs: List<Song>, favorites: Set<Long>, currentId: State<Long?>, settings: AppSettings,
     listState: LazyListState, onPlay: PlayAction, onFav: (Long) -> Unit, onNavigate: (Screen) -> Unit,
 ) {
     val play = remember(songs, onPlay) { { i: Int -> onPlay(songs, i) } }
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), state = listState) {
+    LazyColumn(Modifier.fillMaxSize(), state = listState) {
         item(key = "header", contentType = "header") {
             ScreenHeader("WavePlayer", "${songs.size} lagu") {
                 IconButton({ onNavigate(Screen.RECENT) }) { Icon(Icons.Default.History, "Terakhir diputar") }
                 IconButton({ onNavigate(Screen.FAVORITES) }) { Icon(Icons.Default.Favorite, "Favorit") }
                 IconButton({ onNavigate(Screen.SETTINGS) }) { Icon(Icons.Default.Settings, "Pengaturan") }
-            }
-        }
-        item(key = "actions", contentType = "actions") {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    { onPlay(songs.shuffled(), 0) }, enabled = songs.isNotEmpty(),
-                    modifier = Modifier.weight(1f).height(48.dp),
-                ) {
-                    Icon(Icons.Default.Shuffle, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Shuffle")
-                }
-                FilledTonalButton(
-                    { onPlay(songs, 0) }, enabled = songs.isNotEmpty(),
-                    modifier = Modifier.weight(1f).height(48.dp),
-                ) {
-                    Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Play All")
-                }
             }
         }
         if (songs.isEmpty()) {
@@ -101,7 +107,7 @@ fun SongsScreen(
         if (type == FilterType.ALL || value == null) songs else songs.filter { type.key(it) == value }
     }
     val play = remember(shown, onPlay) { { i: Int -> onPlay(shown, i) } }
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+    Column(Modifier.fillMaxSize()) {
         ScreenHeader("Songs", "${shown.size} lagu")
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(FilterType.values().toList(), key = { it.name }) { t ->
@@ -116,6 +122,7 @@ fun SongsScreen(
             }
         }
         LazyColumn(Modifier.weight(1f), state = listState) {
+            item(key = "actions", contentType = "actions") { PlayActionsRow(shown, onPlay) }
             songItems(shown, favorites, settings.listStyle, currentId, play, onFav)
         }
     }
@@ -126,7 +133,7 @@ fun GroupsScreen(
     title: String, groups: List<Group>, showArtist: Boolean, settings: AppSettings,
     listState: LazyListState, onPlayGroup: (Group) -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+    Column(Modifier.fillMaxSize()) {
         ScreenHeader(title, "${groups.size} item")
         LazyColumn(Modifier.weight(1f), state = listState) {
             items(groups, key = { it.key }, contentType = { "group" }) { g ->
@@ -142,7 +149,7 @@ fun SongListScreen(
     settings: AppSettings, listState: LazyListState, onPlay: PlayAction, onFav: (Long) -> Unit,
 ) {
     val play = remember(songs, onPlay) { { i: Int -> onPlay(songs, i) } }
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+    Column(Modifier.fillMaxSize()) {
         ScreenHeader(title, "${songs.size} lagu")
         if (songs.isEmpty()) {
             Text(emptyText, modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)

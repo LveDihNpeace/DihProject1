@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -148,6 +150,7 @@ private fun Root(
     val foldersState = rememberLazyListState()
     val favState = rememberLazyListState()
     val recentState = rememberLazyListState()
+    val settingsScroll = rememberScrollState() // Settings is a plain scrolling column; kept here so it survives page changes
 
     BackHandler(enabled = showNow.value) { showNow.value = false; startLyrics = false }
     BackHandler(enabled = !showNow.value && screen != Screen.HOME) { screen = Screen.HOME }
@@ -179,7 +182,8 @@ private fun Root(
                 }
             },
         ) { pad ->
-            Box(Modifier.padding(pad)) {
+            // Status bar inset is applied once, here, for every page (pages no longer pad themselves).
+            Box(Modifier.padding(pad).statusBarsPadding()) {
                 when (screen) {
                     Screen.HOME -> HomeScreen(lib.songs, favorites, currentId, settings, homeState, onPlay, onFav, onNavigate)
                     Screen.SONGS -> SongsScreen(lib.songs, favorites, currentId, settings, songsState, onPlay, onFav)
@@ -194,7 +198,7 @@ private fun Root(
                         val recentSongs = remember(lib, recentIds) { recentIds.mapNotNull { lib.byId[it] } }
                         SongListScreen("Recently Played", "Belum ada riwayat putar.", recentSongs, favorites, currentId, settings, recentState, onPlay, onFav)
                     }
-                    Screen.SETTINGS -> SettingsScreen(settings, settingsVm, library)
+                    Screen.SETTINGS -> SettingsScreen(settings, settingsVm, library, settingsScroll)
                 }
             }
         }

@@ -108,7 +108,7 @@ fun SongsScreen(
     }
     val play = remember(shown, onPlay) { { i: Int -> onPlay(shown, i) } }
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Songs", "${shown.size} lagu")
+        PageInfo("${shown.size} lagu")
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(FilterType.values().toList(), key = { it.name }) { t ->
                 FilterChip(selected = type == t, onClick = { type = t; value = null }, label = { Text(t.label) })
@@ -145,12 +145,12 @@ fun GroupsScreen(
 
 @Composable
 fun SongListScreen(
-    title: String, emptyText: String, songs: List<Song>, favorites: Set<Long>, currentId: State<Long?>,
+    emptyText: String, songs: List<Song>, favorites: Set<Long>, currentId: State<Long?>,
     settings: AppSettings, listState: LazyListState, onPlay: PlayAction, onFav: (Long) -> Unit,
 ) {
     val play = remember(songs, onPlay) { { i: Int -> onPlay(songs, i) } }
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(title, "${songs.size} lagu")
+        PageInfo("${songs.size} lagu")
         if (songs.isEmpty()) {
             Text(emptyText, modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

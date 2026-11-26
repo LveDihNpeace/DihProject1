@@ -60,6 +60,15 @@ fun ScreenHeader(title: String, subtitle: String? = null, actions: @Composable R
     }
 }
 
+/** Small info line under the shell header. The header is the only place that shows the page title. */
+@Composable
+fun PageInfo(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+    )
+}
+
 /**
  * All parameters are stable (Immutable Song, primitives, remembered lambdas), so rows are skipped during
  * recomposition. [currentId] is a State read here, so only rows whose "playing" status matters are redrawn.

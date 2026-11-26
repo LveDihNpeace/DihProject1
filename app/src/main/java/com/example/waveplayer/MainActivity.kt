@@ -25,18 +25,16 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
@@ -48,18 +46,23 @@ import com.example.waveplayer.data.ArtPalette
 import com.example.waveplayer.data.ArtworkColors
 import com.example.waveplayer.data.Library
 import com.example.waveplayer.data.Song
-import com.example.waveplayer.ui.GroupsScreen
-import com.example.waveplayer.ui.HomeScreen
 import com.example.waveplayer.ui.MiniPlayer
 import com.example.waveplayer.ui.Motion
 import com.example.waveplayer.ui.NowPlayingScreen
-import com.example.waveplayer.ui.Screen
 import com.example.waveplayer.ui.SettingsScreen
 import com.example.waveplayer.ui.ShortcutBus
 import com.example.waveplayer.ui.SongListScreen
 import com.example.waveplayer.ui.SongsScreen
-import com.example.waveplayer.ui.WaveNavBar
 import com.example.waveplayer.ui.WaveTheme
+import com.example.waveplayer.ui.rememberTopNavState
+import com.example.waveplayer.ui.rememberNavState
+import com.example.waveplayer.ui.backTarget
+import com.example.waveplayer.ui.ScanScreen
+import com.example.waveplayer.ui.PlaylistRoute
+import com.example.waveplayer.ui.PlaylistHubScreen
+import com.example.waveplayer.ui.NavShell
+import com.example.waveplayer.ui.Destination
+import com.example.waveplayer.ui.BackTarget
 import com.example.waveplayer.viewmodel.LibraryViewModel
 import com.example.waveplayer.viewmodel.LyricsViewModel
 import com.example.waveplayer.viewmodel.SettingsViewModel
@@ -138,67 +141,93 @@ private fun Root(
         }.toTypedArray())
     }
 
-    var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
-    val showNow = remember { mutableStateOf(false) }
-    var startLyrics by remember { mutableStateOf(false) }
+    val nav = rememberNavState()
+    val top = rememberTopNavState(nav)
 
-    // One scroll state per page, hoisted here: tab switches and Now Playing open/close keep scroll positions.
-    val homeState = rememberLazyListState()
+    // One scroll state per page, hoisted here so page changes and Now Playing keep scroll positions.
     val songsState = rememberLazyListState()
-    val albumsState = rememberLazyListState()
-    val artistsState = rememberLazyListState()
-    val foldersState = rememberLazyListState()
     val favState = rememberLazyListState()
     val recentState = rememberLazyListState()
     val settingsScroll = rememberScrollState() // Settings is a plain scrolling column; kept here so it survives page changes
 
-    BackHandler(enabled = showNow.value) { showNow.value = false; startLyrics = false }
-    BackHandler(enabled = !showNow.value && screen != Screen.HOME) { screen = Screen.HOME }
+    val favSongs = remember(lib, favorites) { lib.songs.filter { it.id in favorites } }
+    val recentSongs = remember(lib, recentIds) { recentIds.mapNotNull { lib.byId[it] } }
+
+    // Back: one derived target (Now Playing > panel > Playlist sub-page > other page > exit). Each handler is
+    // enabled for exactly one target, so they never compete and the order they are registered in does not matter.
+    val panelShown by remember(nav, top) { derivedStateOf { nav.panelOpen || top.progress.value > 0f } }
+    val target by remember(nav) {
+        derivedStateOf { backTarget(nav.nowPlayingOpen, panelShown, nav.destination, nav.playlistRoute) }
+    }
+    BackHandler(enabled = target == BackTarget.NOW_PLAYING) { nav.closeNowPlaying() }
+    BackHandler(enabled = target == BackTarget.PANEL) { top.close() }
+    BackHandler(enabled = target == BackTarget.PLAYLIST_HUB || target == BackTarget.SONGS) {
+        if (target == BackTarget.PLAYLIST_HUB) nav.backToHub() else nav.select(Destination.SONGS)
+    }
 
     // Stable callbacks (remembered) so list rows can be skipped.
-    val onPlay = remember(player) { { list: List<Song>, i: Int -> player.play(list, i); showNow.value = true } }
-    val onPlayGroup = remember(player) { { g: com.example.waveplayer.data.Group -> player.play(g.songs, 0); showNow.value = true } }
+    // Every way into Now Playing closes the panel first, so the panel can never stay open behind it.
+    val openNowPlaying = remember(nav, top) { { withLyrics: Boolean -> top.snapClosed(); nav.openNowPlaying(withLyrics) } }
+    val onPlay = remember(player, openNowPlaying) { { list: List<Song>, i: Int -> player.play(list, i); openNowPlaying(false) } }
     val onFav = remember(settingsVm) { { id: Long -> settingsVm.toggleFavorite(id) } }
-    val onNavigate = remember { { s: Screen -> screen = s } }
+    val onSelect = remember(nav, top) { { d: Destination -> nav.select(d); top.close() } }
 
-    // Launcher shortcuts (long-press the app icon).
+    // Launcher shortcuts (long-press the app icon). Favorites / Recently Played now open the Playlist sub-pages.
     val shortcut by ShortcutBus.action.collectAsStateWithLifecycle()
     LaunchedEffect(shortcut) {
         when (shortcut) {
-            ShortcutBus.FAVORITES -> screen = Screen.FAVORITES
-            ShortcutBus.RECENT -> screen = Screen.RECENT
-            ShortcutBus.LYRICS -> if (player.currentId.value != null) { startLyrics = true; showNow.value = true }
+            ShortcutBus.FAVORITES -> {
+                nav.closeNowPlaying(); top.snapClosed(); nav.openPlaylistRoute(PlaylistRoute.FAVORITES)
+            }
+            ShortcutBus.RECENT -> {
+                nav.closeNowPlaying(); top.snapClosed(); nav.openPlaylistRoute(PlaylistRoute.RECENT)
+            }
+            ShortcutBus.LYRICS -> if (player.currentId.value != null) openNowPlaying(true)
         }
         if (shortcut != null) ShortcutBus.action.value = null
     }
+
+    val title = when (nav.destination) {
+        Destination.SONGS -> "Songs"
+        Destination.PLAYLIST -> when (nav.playlistRoute) {
+            PlaylistRoute.HUB -> "Playlist"
+            PlaylistRoute.FAVORITES -> "Favorites"
+            PlaylistRoute.RECENT -> "Recently Played"
+        }
+        Destination.SCAN -> "Scan Music"
+        Destination.SETTINGS -> "Settings"
+    }
+    val showBack = nav.destination == Destination.PLAYLIST && nav.playlistRoute != PlaylistRoute.HUB
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             contentWindowInsets = WindowInsets(0.dp),
             bottomBar = {
                 Column(Modifier.navigationBarsPadding()) {
-                    MiniPlayer(player) { showNow.value = true }
-                    WaveNavBar(screen) { screen = it }
+                    MiniPlayer(player) { openNowPlaying(false) }
                 }
             },
         ) { pad ->
-            // Status bar inset is applied once, here, for every page (pages no longer pad themselves).
-            Box(Modifier.padding(pad).statusBarsPadding()) {
-                when (screen) {
-                    Screen.HOME -> HomeScreen(lib.songs, favorites, currentId, settings, homeState, onPlay, onFav, onNavigate)
-                    Screen.SONGS -> SongsScreen(lib.songs, favorites, currentId, settings, songsState, onPlay, onFav)
-                    Screen.ALBUMS -> GroupsScreen("Albums", lib.albums, true, settings, albumsState, onPlayGroup)
-                    Screen.ARTISTS -> GroupsScreen("Artists", lib.artists, false, settings, artistsState, onPlayGroup)
-                    Screen.FOLDERS -> GroupsScreen("Folders", lib.folders, false, settings, foldersState, onPlayGroup)
-                    Screen.FAVORITES -> {
-                        val favSongs = remember(lib, favorites) { lib.songs.filter { it.id in favorites } }
-                        SongListScreen("Favorites", "Belum ada favorit. Ketuk ikon hati pada lagu.", favSongs, favorites, currentId, settings, favState, onPlay, onFav)
+            // The shell owns the status bar inset (inside the header); pages no longer pad themselves.
+            Box(Modifier.padding(pad)) {
+                NavShell(nav, top, title, showBack, onBack = nav::backToHub, onSelect = onSelect) {
+                    when (nav.destination) {
+                        Destination.SONGS ->
+                            SongsScreen(lib.songs, favorites, currentId, settings, songsState, onPlay, onFav)
+                        Destination.PLAYLIST -> when (nav.playlistRoute) {
+                            PlaylistRoute.HUB -> PlaylistHubScreen(favSongs, recentSongs, nav::openPlaylistRoute)
+                            PlaylistRoute.FAVORITES -> SongListScreen(
+                                "Belum ada favorit. Ketuk ikon hati pada lagu.", favSongs, favorites, currentId,
+                                settings, favState, onPlay, onFav,
+                            )
+                            PlaylistRoute.RECENT -> SongListScreen(
+                                "Belum ada riwayat putar.", recentSongs, favorites, currentId,
+                                settings, recentState, onPlay, onFav,
+                            )
+                        }
+                        Destination.SCAN -> ScanScreen(library)
+                        Destination.SETTINGS -> SettingsScreen(settings, settingsVm, settingsScroll)
                     }
-                    Screen.RECENT -> {
-                        val recentSongs = remember(lib, recentIds) { recentIds.mapNotNull { lib.byId[it] } }
-                        SongListScreen("Recently Played", "Belum ada riwayat putar.", recentSongs, favorites, currentId, settings, recentState, onPlay, onFav)
-                    }
-                    Screen.SETTINGS -> SettingsScreen(settings, settingsVm, library, settingsScroll)
                 }
             }
         }
@@ -206,7 +235,7 @@ private fun Root(
         // Enter: rises from the mini player (anchored bottom) while scaling up and fading in. Exit mirrors it.
         // Playback is untouched by this animation; the pages below stay composed, so scroll state is preserved.
         AnimatedVisibility(
-            visible = showNow.value,
+            visible = nav.nowPlayingOpen,
             enter = slideInVertically(Motion.standard()) { it / 3 } +
                 fadeIn(Motion.quick()) +
                 scaleIn(Motion.standard(), initialScale = 0.92f, transformOrigin = TransformOrigin(0.5f, 1f)),
@@ -215,8 +244,8 @@ private fun Root(
                 scaleOut(Motion.quick(), targetScale = 0.92f, transformOrigin = TransformOrigin(0.5f, 1f)),
         ) {
             NowPlayingHost(
-                player, lyricsVm, settingsVm, lib, settings, palette, favorites, startLyrics,
-            ) { showNow.value = false; startLyrics = false }
+                player, lyricsVm, settingsVm, lib, settings, palette, favorites, nav.startLyrics,
+            ) { nav.closeNowPlaying() }
         }
     }
 }

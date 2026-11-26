@@ -47,7 +47,7 @@ private fun waveDarkScheme(seed: Color, amoledBlack: Boolean): ColorScheme {
     val bg = if (amoledBlack) WavePalette.Black else WavePalette.Charcoal
     val surface = if (amoledBlack) WavePalette.Charcoal else WavePalette.Graphite
     val raised = if (amoledBlack) WavePalette.Graphite else WavePalette.GraphiteRaised
-    val accent = ensureContrast(seed, 4.5f, listOf(bg, surface, raised))
+    val accent = ensureContrast(seed, 4.5f, bg, surface, raised)
     val onAccent = readableOn(accent)
     val container = blend(raised, accent, 0.28f)
     return darkColorScheme(
@@ -73,7 +73,7 @@ private fun waveLightScheme(seed: Color): ColorScheme {
     val surface = WavePalette.LightSurface
     val raised = WavePalette.LightRaised
     // The accent is darkened (same hue) only as far as needed to read on every light surface.
-    val accent = ensureContrast(seed, 4.5f, listOf(bg, surface, raised))
+    val accent = ensureContrast(seed, 4.5f, bg, surface, raised)
     val onAccent = readableOn(accent)
     val container = blend(raised, accent, 0.16f)
     return lightColorScheme(

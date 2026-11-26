@@ -25,13 +25,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.waveplayer.data.AppSettings
 import com.example.waveplayer.data.ArtShape
 import com.example.waveplayer.data.ListStyle
 import com.example.waveplayer.data.LyricsPosition
 import com.example.waveplayer.data.ThemeMode
-import com.example.waveplayer.viewmodel.LibraryViewModel
 import com.example.waveplayer.viewmodel.SettingsViewModel
 
 private val accents = Accents.presets.map { it.color }
@@ -78,19 +76,12 @@ private fun ColorDots(colors: List<Int>, selected: Int, onPick: (Int) -> Unit) {
 
 /** [scrollState] is owned by the caller so the scroll position survives leaving and re-entering Settings. */
 @Composable
-fun SettingsScreen(settings: AppSettings, vm: SettingsViewModel, library: LibraryViewModel, scrollState: ScrollState) {
-    // Scan progress is collected here only, so scanning never recomposes the song lists.
-    val scan by library.scan.collectAsStateWithLifecycle()
-    val lib by library.library.collectAsStateWithLifecycle()
+fun SettingsScreen(settings: AppSettings, vm: SettingsViewModel, scrollState: ScrollState) {
     var showEq by remember { mutableStateOf(false) }
     if (showEq) EqualizerSheet { showEq = false }
     val blurSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
-        ScreenHeader("Settings")
-
-        Section("Pemindai musik") { ScanCard(scan, lib.songs.size, library::scan) }
-
         Text("Appearance", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 20.dp, top = 12.dp))
         Section("Tema") {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

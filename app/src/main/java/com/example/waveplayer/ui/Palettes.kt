@@ -64,7 +64,7 @@ fun blend(a: Color, b: Color, t: Float): Color =
  * Keeps the hue of [color] but darkens or lightens it until it reaches [min]:1 contrast on EVERY color in [against].
  * Returns [color] unchanged when it already passes (all dark-theme presets do).
  */
-fun ensureContrast(color: Color, min: Float, vararg against: Color): Color {
+fun ensureContrast(color: Color, min: Float, against: List<Color>): Color {
     if (against.all { contrastRatio(color, it) >= min }) return color
     val avg = against.map { it.wcagLuminance() }.average().toFloat()
     val target = if (avg > 0.5f) Color.Black else Color.White
